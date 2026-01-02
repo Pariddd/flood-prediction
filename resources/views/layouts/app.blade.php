@@ -10,7 +10,7 @@
     <nav class="bg-slate-800 shadow-lg border-b border-slate-700">
         <div class="container mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-lg font-semibold text-white">
-                🌧️ Flood Prediction
+                Flood Prediction
             </h1>
             <div class="flex gap-4 text-sm">
                 <a href="/" class="text-slate-300 hover:text-blue-400">

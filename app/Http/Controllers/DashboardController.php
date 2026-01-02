@@ -6,12 +6,13 @@ use Illuminate\Http\Request;
 use App\Services\OpenWeatherService;
 use App\Services\FloodMlService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
     public function index(Request $request, OpenWeatherService $weather, FloodMlService $ml)
     {
-        $cityInput = $request->get('city', 'Jepara');
+        $cityInput = $request->get('city', 'Banda Aceh');
 
         $location = $weather->geocode($cityInput);
         if (!$location) {
@@ -136,7 +137,9 @@ class DashboardController extends Controller
         OpenWeatherService $weather,
         FloodMlService $ml
     ) {
-        $cityInput = $request->get('city', 'Jepara');
+        set_time_limit(180);
+
+        $cityInput = $request->get('city', 'Banda Aceh');
 
         $location = $weather->geocode($cityInput);
         if (!$location) {
@@ -147,20 +150,39 @@ class DashboardController extends Controller
         $lon = $location['lon'];
 
         $points = [];
+        $gridSize = 0.02;
+        $range = 1;
 
-        for ($i = -1; $i <= 1; $i++) {
-            for ($j = -1; $j <= 1; $j++) {
+        for ($i = -$range; $i <= $range; $i++) {
+            for ($j = -$range; $j <= $range; $j++) {
 
-                $pLat = $lat + ($i * 0.02);
-                $pLon = $lon + ($j * 0.02);
+                $pLat = $lat + ($i * $gridSize);
+                $pLon = $lon + ($j * $gridSize);
 
-                $current = $weather->currentWeather($pLat, $pLon);
-                $forecast = $weather->forecast($pLat, $pLon);
+                try {
+                    $cacheKey = "weather_{$pLat}_{$pLon}_" . now()->format('YmdH');
 
-                if (!$current || !$forecast) continue;
+                    $weatherData = Cache::remember($cacheKey, 3600, function () use ($weather, $pLat, $pLon) {
+                        $current = $weather->currentWeather($pLat, $pLon);
+                        $forecast = $weather->forecast($pLat, $pLon);
+                        $elevation = $weather->elevation($pLat, $pLon) ?? 0;
+
+                        return compact('current', 'forecast', 'elevation');
+                    });
+
+                    $current = $weatherData['current'];
+                    $forecast = $weatherData['forecast'];
+                    $elevation = $weatherData['elevation'];
+
+                    if (!$current || !$forecast) continue;
+                } catch (\Exception $e) {
+                    \Log::error("Weather API Error: " . $e->getMessage());
+                    continue;
+                }
 
                 $rain24h = 0;
                 $rain3d  = 0;
+                $rain7d  = 0;
                 $now = now();
 
                 foreach ($forecast['list'] as $item) {
@@ -173,14 +195,15 @@ class DashboardController extends Controller
                     if ($time->lessThanOrEqualTo($now->copy()->addDays(3))) {
                         $rain3d += $rain;
                     }
+                    if ($time->lessThanOrEqualTo($now->copy()->addDays(7))) {
+                        $rain7d += $rain;
+                    }
                 }
-
-                $elevation = $weather->elevation($pLat, $pLon) ?? 0;
 
                 $payload = [
                     'rain_24h'    => round($rain24h, 1),
                     'rain_3d'     => round($rain3d, 1),
-                    'rain_7d'     => round($rain3d, 1),
+                    'rain_7d'     => round($rain7d, 1),
                     'humidity'    => $current['main']['humidity'],
                     'temperature' => round($current['main']['temp'], 1),
                     'pressure'    => $current['main']['pressure'],
@@ -188,30 +211,54 @@ class DashboardController extends Controller
                     'elevation'   => $elevation,
                 ];
 
-                $mlResult = $ml->predict($payload);
+                try {
+                    $mlCacheKey = 'ml_' . md5(json_encode($payload));
 
-                $risk = $mlResult['risk'] ?? 'Aman';
+                    $mlResult = Cache::remember($mlCacheKey, 3600, function () use ($ml, $payload) {
+                        return $ml->predict($payload);
+                    });
+
+                    $risk = $mlResult['risk'] ?? 'Aman';
+                    $probability = $mlResult['probability'] ?? 0;
+                } catch (\Exception $e) {
+
+                    \Log::error("ML API Error: " . $e->getMessage());
+
+                    $risk = 'Aman';
+                    $probability = 0;
+                }
+
 
                 $color = match ($risk) {
-                    'Bahaya'  => 'red',
-                    'Waspada' => 'orange',
-                    default   => 'green',
+                    'Bahaya'  => '#ef4444',
+                    'Waspada' => '#f59e0b',
+                    default   => '#10b981',
                 };
 
                 $points[] = [
-                    'lat'   => $pLat,
-                    'lon'   => $pLon,
-                    'risk'  => $risk,
-                    'color' => $color,
+                    'lat'         => $pLat,
+                    'lon'         => $pLon,
+                    'risk'        => $risk,
+                    'color'       => $color,
+                    'probability' => round($probability * 100, 1),
+                    'data'        => $payload,
                 ];
             }
         }
+
+        $stats = [
+            'total' => count($points),
+            'bahaya' => collect($points)->where('risk', 'Bahaya')->count(),
+            'waspada' => collect($points)->where('risk', 'Waspada')->count(),
+            'aman' => collect($points)->where('risk', 'Aman')->count(),
+        ];
 
         return view('heatmap', [
             'city'   => $location['name'],
             'lat'    => $lat,
             'lon'    => $lon,
             'points' => $points,
+            'stats'  => $stats,
         ]);
     }
 }
