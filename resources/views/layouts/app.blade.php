@@ -6,17 +6,17 @@
     <title>@yield('title', 'Flood Prediction')</title>
     @vite('resources/css/app.css')
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen">
-    <nav class="bg-white shadow-sm border-b border-slate-200">
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+    <nav class="bg-slate-800 shadow-lg border-b border-slate-700">
         <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-lg font-semibold">
+            <h1 class="text-lg font-semibold text-white">
                 🌧️ Flood Prediction
             </h1>
             <div class="flex gap-4 text-sm">
-                <a href="/" class="hover:text-blue-600">
+                <a href="/" class="text-slate-300 hover:text-blue-400">
                     Dashboard
                 </a>
-                <a href="/heatmap" class="hover:text-blue-600">
+                <a href="/heatmap" class="text-slate-300 hover:text-blue-400">
                     Heatmap
                 </a>
             </div>
