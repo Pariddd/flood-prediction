@@ -60,4 +60,24 @@ class OpenWeatherService
       'country' => $data[0]['country'] ?? '',
     ];
   }
+
+  public function elevation($lat, $lon)
+  {
+    try {
+      $response = Http::timeout(10)->get(
+        'https://api.open-elevation.com/api/v1/lookup',
+        [
+          'locations' => "{$lat},{$lon}"
+        ]
+      );
+
+      if ($response->failed()) {
+        return 0;
+      }
+
+      return $response->json()['results'][0]['elevation'] ?? 0;
+    } catch (\Exception $e) {
+      return 0;
+    }
+  }
 }
