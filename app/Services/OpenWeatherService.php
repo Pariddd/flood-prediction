@@ -38,4 +38,26 @@ class OpenWeatherService
 
     return $response->json();
   }
+
+  public function geocode(string $city): ?array
+  {
+    $response = Http::get('http://api.openweathermap.org/geo/1.0/direct', [
+      'q' => $city,
+      'limit' => 1,
+      'appid' => $this->apiKey,
+    ]);
+
+    $data = $response->json();
+
+    if (empty($data)) {
+      return null;
+    }
+
+    return [
+      'lat' => $data[0]['lat'],
+      'lon' => $data[0]['lon'],
+      'name' => $data[0]['name'],
+      'country' => $data[0]['country'] ?? '',
+    ];
+  }
 }
