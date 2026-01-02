@@ -39,24 +39,26 @@
             </div>
         </x-card>
         <x-card class="flex flex-col gap-6">
-            <div class="text-center rounded-2xl px-4 py-4
-                @if($riskColor === 'green') bg-green-500/20
-                @elseif($riskColor === 'yellow') bg-yellow-500/20
-                @else bg-red-500/20 @endif
-            ">
-                <p class="text-xs uppercase tracking-wide text-slate-300">
-                    Risiko Banjir
+            <div class="p-4 rounded-xl
+                @if($riskLevel === 'Bahaya') bg-red-500/20
+                @elseif($riskLevel === 'Waspada') bg-yellow-500/20
+                @else bg-green-500/20
+                @endif
+                text-white text-center">
+
+                <p class="text-sm uppercase tracking-wide">
+                    Prediksi Risiko Banjir (ML)
                 </p>
-                <p class="text-3xl font-bold mt-1
-                    @if($riskColor === 'green') text-green-300
-                    @elseif($riskColor === 'yellow') text-yellow-300
-                    @else text-red-300 @endif
-                ">
+
+                <p class="text-2xl font-bold mt-1">
                     {{ $riskLevel }}
                 </p>
-                <p class="text-xs mt-2 text-slate-300">
-                    {{ $riskMessage }}
-                </p>
+
+                @if($confidence)
+                    <p class="text-sm opacity-90 mt-1">
+                        Confidence: {{ $confidence * 100 }}%
+                    </p>
+                @endif
             </div>
             <div class="border-t border-slate-700 my-2"></div>
             <div class="space-y-4">
