@@ -40,4 +40,8 @@ return [
         'url' => env('OPENWEATHER_BASE_URL'),
     ],
 
+    'ml' => [
+        'url' => env('ML_API_URL'),
+    ],
+
 ];
