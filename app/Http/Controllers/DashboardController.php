@@ -130,4 +130,88 @@ class DashboardController extends Controller
             'confidence'  => $mlResult['confidence'] ?? null,
         ]);
     }
+
+    public function heatmap(
+        Request $request,
+        OpenWeatherService $weather,
+        FloodMlService $ml
+    ) {
+        $cityInput = $request->get('city', 'Jepara');
+
+        $location = $weather->geocode($cityInput);
+        if (!$location) {
+            return redirect('/')->with('error', 'Lokasi tidak ditemukan');
+        }
+
+        $lat = $location['lat'];
+        $lon = $location['lon'];
+
+        $points = [];
+
+        for ($i = -1; $i <= 1; $i++) {
+            for ($j = -1; $j <= 1; $j++) {
+
+                $pLat = $lat + ($i * 0.02);
+                $pLon = $lon + ($j * 0.02);
+
+                $current = $weather->currentWeather($pLat, $pLon);
+                $forecast = $weather->forecast($pLat, $pLon);
+
+                if (!$current || !$forecast) continue;
+
+                $rain24h = 0;
+                $rain3d  = 0;
+                $now = now();
+
+                foreach ($forecast['list'] as $item) {
+                    $time = \Carbon\Carbon::createFromTimestamp($item['dt']);
+                    $rain = $item['rain']['3h'] ?? 0;
+
+                    if ($time->lessThanOrEqualTo($now->copy()->addDay())) {
+                        $rain24h += $rain;
+                    }
+                    if ($time->lessThanOrEqualTo($now->copy()->addDays(3))) {
+                        $rain3d += $rain;
+                    }
+                }
+
+                $elevation = $weather->elevation($pLat, $pLon) ?? 0;
+
+                $payload = [
+                    'rain_24h'    => round($rain24h, 1),
+                    'rain_3d'     => round($rain3d, 1),
+                    'rain_7d'     => round($rain3d, 1),
+                    'humidity'    => $current['main']['humidity'],
+                    'temperature' => round($current['main']['temp'], 1),
+                    'pressure'    => $current['main']['pressure'],
+                    'wind_speed'  => round($current['wind']['speed'], 1),
+                    'elevation'   => $elevation,
+                ];
+
+                $mlResult = $ml->predict($payload);
+
+                $risk = $mlResult['risk'] ?? 'Aman';
+
+                $color = match ($risk) {
+                    'Bahaya'  => 'red',
+                    'Waspada' => 'orange',
+                    default   => 'green',
+                };
+
+                $points[] = [
+                    'lat'   => $pLat,
+                    'lon'   => $pLon,
+                    'risk'  => $risk,
+                    'color' => $color,
+                ];
+            }
+        }
+
+        return view('heatmap', [
+            'city'   => $location['name'],
+            'lat'    => $lat,
+            'lon'    => $lon,
+            'points' => $points,
+        ]);
+    }
 }

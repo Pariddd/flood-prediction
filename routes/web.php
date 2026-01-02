@@ -13,6 +13,5 @@ Route::get('/', function () {
 
 Route::get('/', [DashboardController::class, 'index']);
 
-Route::get('/heatmap', function () {
-    return view('heatmap');
-});
+Route::get('/heatmap', [DashboardController::class, 'heatmap'])
+    ->name('heatmap');
