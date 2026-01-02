@@ -72,9 +72,9 @@ class DashboardController extends Controller
 
             if (!isset($forecastDaily[$date])) {
                 $forecastDaily[$date] = [
-                    'day'     => $date,
-                    'temp'    => round($item['main']['temp']),
-                    'weather' => $item['weather'][0]['main'],
+                    'day'  => $date,
+                    'temp' => round($item['main']['temp']),
+                    'icon' => $item['weather'][0]['icon'],
                 ];
             }
 
@@ -104,7 +104,7 @@ class DashboardController extends Controller
             'riskLevel'   => $riskLevel,
             'riskColor'   => $riskColor,
             'riskMessage' => $riskMessage,
-
+            'currentIcon' => $current['weather'][0]['icon'],
         ];
 
         return view('dashboard', $data);
